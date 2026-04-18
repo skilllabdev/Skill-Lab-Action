@@ -1,0 +1,20 @@
+# Runtime artifacts
+*.log
+*.tmp
+.tmp/
+
+# Python (BYOK CLI install during local testing)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+pip-cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*~
+*.bak
+*.swp

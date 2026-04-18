@@ -1,0 +1,143 @@
+name: "Skill-Lab Review"
+description: "Evaluate, judge, and optimize agent skills (SKILL.md files) in pull requests"
+author: "Skill-Lab"
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  mode:
+    description: "review | judge | optimize | apply"
+    required: false
+    default: "review"
+  fail-threshold:
+    description: "Minimum static score to pass (0-100). 0 = informational only."
+    required: false
+    default: "0"
+  security-gate:
+    description: "Fail on BLOCK security findings"
+    required: false
+    default: "true"
+  judge-threshold:
+    description: "Minimum judge score to pass (0-100). 0 = informational only."
+    required: false
+    default: "0"
+  spec-only:
+    description: "Run only spec-required checks (skip quality suggestions)"
+    required: false
+    default: "false"
+  api-key:
+    description: "LLM API key. If provided, runs BYOK locally via CLI. If absent, calls api.skill-lab.dev (backend pays)."
+    required: false
+    default: ""
+  model:
+    description: "LLM model (BYOK mode only). Supports Anthropic, OpenAI, Gemini."
+    required: false
+    default: "claude-haiku-4-5-20251001"
+  comment:
+    description: "Post PR comment with results"
+    required: false
+    default: "true"
+  sklab-version:
+    description: "Pin to a specific skill-lab version (BYOK mode only)"
+    required: false
+    default: "latest"
+  max-skills:
+    description: "Cap skills processed per run"
+    required: false
+    default: "10"
+  path:
+    description: "Optional explicit skill path (e.g. 'skills/my-skill'). Overrides auto-detection. Used by slash-command workflows."
+    required: false
+    default: ""
+  github-token:
+    description: "GitHub token for API calls and commits"
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  results:
+    description: "JSON array of per-skill results"
+    value: ${{ steps.evaluate.outputs.results }}
+  any-failed:
+    description: "'true' if any gate failed"
+    value: ${{ steps.evaluate.outputs.any-failed }}
+  skills-count:
+    description: "Number of skills evaluated"
+    value: ${{ steps.detect.outputs.count }}
+  total-cost:
+    description: "Estimated total cost (BYOK) or 'free' (backend)"
+    value: ${{ steps.evaluate.outputs.total-cost }}
+  applied:
+    description: "'true' if apply mode committed changes"
+    value: ${{ steps.apply.outputs.applied }}
+
+runs:
+  using: "composite"
+  steps:
+    # ---------- apply mode: read last comment, commit optimized content ----------
+    - name: Apply optimized content
+      id: apply
+      if: inputs.mode == 'apply'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        COMMENT_MARKER: "<!-- sklab-action -->"
+      run: ${{ github.action_path }}/scripts/apply-optimize.sh
+
+    # ---------- review | judge | optimize: detect → evaluate → comment ----------
+    - name: Detect changed SKILL.md files
+      id: detect
+      if: inputs.mode != 'apply'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        MAX_SKILLS: ${{ inputs.max-skills }}
+        EXPLICIT_PATH: ${{ inputs.path }}
+      run: ${{ github.action_path }}/scripts/detect-changes.sh
+
+    - name: Evaluate skills
+      id: evaluate
+      if: inputs.mode != 'apply' && steps.detect.outputs.count != '0'
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        API_KEY: ${{ inputs.api-key }}
+        MODEL: ${{ inputs.model }}
+        FAIL_THRESHOLD: ${{ inputs.fail-threshold }}
+        SECURITY_GATE: ${{ inputs.security-gate }}
+        JUDGE_THRESHOLD: ${{ inputs.judge-threshold }}
+        SPEC_ONLY: ${{ inputs.spec-only }}
+        SKLAB_VERSION: ${{ inputs.sklab-version }}
+        PATHS: ${{ steps.detect.outputs.paths }}
+      run: |
+        if [ -n "$API_KEY" ]; then
+          "${{ github.action_path }}/scripts/evaluate-cli.sh"
+        else
+          "${{ github.action_path }}/scripts/evaluate-backend.sh"
+        fi
+
+    - name: Post PR comment
+      if: >-
+        inputs.mode != 'apply' &&
+        inputs.comment == 'true' &&
+        steps.detect.outputs.count != '0' &&
+        (github.event_name == 'pull_request' || github.event.issue.pull_request)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        MODE: ${{ inputs.mode }}
+        RESULTS_FILE: ${{ steps.evaluate.outputs.results-file }}
+        COMMENT_MARKER: "<!-- sklab-action -->"
+      run: |
+        "${{ github.action_path }}/scripts/build-comment.sh" > "$RUNNER_TEMP/sklab-comment.md"
+        COMMENT_FILE="$RUNNER_TEMP/sklab-comment.md" "${{ github.action_path }}/scripts/upsert-comment.sh"
+
+    - name: Fail if any gate failed
+      if: >-
+        inputs.mode != 'apply' &&
+        steps.evaluate.outputs.any-failed == 'true'
+      shell: bash
+      run: |
+        echo "::error::One or more skills failed quality gates"
+        exit 1
