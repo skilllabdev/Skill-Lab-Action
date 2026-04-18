@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  retag:
+    name: Move major tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Move v<major> tag to this release
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # Accept v1.2.3, v1.2, v1 — extract the leading vN.
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+ ]]; then
+            echo "Release tag '$TAG_NAME' does not start with vN; skipping major-tag move"
+            exit 0
+          fi
+          MAJOR="$(echo "$TAG_NAME" | grep -oE '^v[0-9]+')"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -f "$MAJOR" "$TAG_NAME"
+          git push origin "$MAJOR" --force
+
+          echo "Moved $MAJOR → $TAG_NAME"
