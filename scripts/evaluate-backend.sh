@@ -25,6 +25,8 @@ urlencode() { jq -rn --arg v "$1" '$v | @uri'; }
 
 # Shape-normalizing extractors. All defensive: backend may return partial fields.
 extract_static() {
+  # Security-dimension checks are surfaced via extract_security; exclude them
+  # from failed_checks to avoid rendering the same row twice in the comment.
   jq -c '{
     quality_score: (.quality_score // 0),
     passed: (.checks_passed // 0),
@@ -32,6 +34,7 @@ extract_static() {
     overall_pass: (.overall_pass // false),
     dimensions: (
       (.results // [])
+      | map(select(.dimension != "security"))
       | group_by(.dimension // "other")
       | map({
           name: (.[0].dimension // "other"),
@@ -41,24 +44,39 @@ extract_static() {
     ),
     failed_checks: (
       (.results // [])
-      | map(select(.passed == false))
+      | map(select(.passed == false and .dimension != "security"))
       | map({
-          check: (.check_id // .name // "unknown"),
+          check: (.check_id // .check_name // .name // "unknown"),
           severity: (.severity // "info"),
           message: (.message // .description // ""),
-          fix: (.suggestion // .fix // "")
+          fix: (.fix // .details.suggestion // .suggestion // "")
         })
     )
   }'
 }
 
 extract_security() {
-  # evaluate endpoint can return ScanResponse (when scan is primary) or
-  # SkillEvaluateResponse. Detect either shape; default to ALLOW.
-  jq -c '{
-    scan_status: (.scan_status // .status // "ALLOW"),
-    findings: (.findings // [])
-  }'
+  # The API represents security as five checks inside results[] tagged
+  # dimension="security". Derive a BLOCK/SUS/ALLOW verdict from them:
+  #   BLOCK if any high-severity security check failed
+  #   SUS   if any security check failed (non-high)
+  #   ALLOW otherwise
+  jq -c '
+    (.results // [] | map(select(.dimension == "security"))) as $sec
+    | ($sec | map(select(.passed == false and .severity == "high"))) as $high
+    | ($sec | map(select(.passed == false))) as $failed
+    | {
+        scan_status: (if ($high | length) > 0 then "BLOCK"
+                      elif ($failed | length) > 0 then "SUS"
+                      else "ALLOW" end),
+        findings: ($failed | map({
+          location: (.check_id),
+          problem: (.check_name // .check_id),
+          text: (.message // ""),
+          severity: .severity,
+          details: (.details // {})
+        }))
+      }'
 }
 
 extract_judge() {

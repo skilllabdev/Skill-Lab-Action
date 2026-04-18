@@ -48,6 +48,7 @@ extract_static() {
     overall_pass: (.overall_pass // false),
     dimensions: (
       (.results // .checks // [])
+      | map(select(.dimension != "security"))
       | group_by(.dimension // "other")
       | map({
           name: (.[0].dimension // "other"),
@@ -57,22 +58,35 @@ extract_static() {
     ),
     failed_checks: (
       (.results // .checks // [])
-      | map(select(.passed == false))
+      | map(select(.passed == false and .dimension != "security"))
       | map({
-          check: (.check_id // .name // "unknown"),
+          check: (.check_id // .check_name // .name // "unknown"),
           severity: (.severity // "info"),
           message: (.message // .description // ""),
-          fix: (.suggestion // .fix // "")
+          fix: (.fix // .details.suggestion // .suggestion // "")
         })
     )
   }'
 }
 
 extract_security() {
-  jq -c '{
-    scan_status: (.scan_status // .security.status // .status // "ALLOW"),
-    findings: (.findings // .security.findings // [])
-  }'
+  # Derive BLOCK/SUS/ALLOW from dimension="security" checks inside results[].
+  jq -c '
+    (.results // .checks // [] | map(select(.dimension == "security"))) as $sec
+    | ($sec | map(select(.passed == false and .severity == "high"))) as $high
+    | ($sec | map(select(.passed == false))) as $failed
+    | {
+        scan_status: (if ($high | length) > 0 then "BLOCK"
+                      elif ($failed | length) > 0 then "SUS"
+                      else "ALLOW" end),
+        findings: ($failed | map({
+          location: (.check_id),
+          problem: (.check_name // .check_id),
+          text: (.message // ""),
+          severity: .severity,
+          details: (.details // {})
+        }))
+      }'
 }
 
 extract_judge() {
