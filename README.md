@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: 8ddieHu0314/skill-lab-action@v1
+      - uses: skilllabdev/skill-lab-action@v1
         with:
           mode: judge
 ```
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: 8ddieHu0314/skill-lab-action@v1
+      - uses: skilllabdev/skill-lab-action@v1
         with:
           mode: review
           fail-threshold: 75
@@ -157,7 +157,7 @@ jobs:
         with:
           ref: refs/pull/${{ github.event.issue.number }}/head
 
-      - uses: 8ddieHu0314/skill-lab-action@v1
+      - uses: skilllabdev/skill-lab-action@v1
         with:
           mode: optimize
           path: ${{ steps.args.outputs.path }}
@@ -198,7 +198,7 @@ jobs:
           ref: ${{ steps.pr.outputs.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: 8ddieHu0314/skill-lab-action@v1
+      - uses: skilllabdev/skill-lab-action@v1
         with:
           mode: apply
 ```
@@ -211,7 +211,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: 8ddieHu0314/skill-lab-action@v1
+      - uses: skilllabdev/skill-lab-action@v1
         with:
           mode: judge
           api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -227,7 +227,7 @@ lands it on the branch.
 ### 6. Headless (no comment, exit code only)
 
 ```yaml
-      - uses: 8ddieHu0314/skill-lab-action@v1
+      - uses: skilllabdev/skill-lab-action@v1
         with:
           mode: review
           comment: false
@@ -268,7 +268,7 @@ To debug locally, export the env vars each script requires and run it directly,
 or invoke the action against a branch in your own repo:
 
 ```yaml
-- uses: 8ddieHu0314/skill-lab-action@main   # or any branch / SHA
+- uses: skilllabdev/skill-lab-action@main   # or any branch / SHA
   with:
     mode: review
     path: tests/fixtures/good-skill
