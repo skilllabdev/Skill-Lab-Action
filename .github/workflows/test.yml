@@ -63,7 +63,9 @@ jobs:
             exit 1
           fi
 
-  # Judge mode hits the backend. Asserts the LLM rubric actually ran.
+  # Judge mode hits the backend. Asserts the LLM rubric actually ran and
+  # that build-comment.sh renders valid markdown (written to step summary,
+  # since push events have no PR to comment on).
   judge-backend:
     name: judge · good-skill (backend LLM)
     runs-on: ubuntu-latest
@@ -75,7 +77,7 @@ jobs:
         with:
           mode: judge
           path: tests/fixtures/good-skill
-          comment: false
+          comment: true
       - name: Assert judge_score present
         env:
           RESULTS: ${{ steps.run.outputs.results }}
@@ -90,6 +92,34 @@ jobs:
           fi
           echo "judge_score=$score"
           echo "total-cost=${{ steps.run.outputs.total-cost }}"
+
+  # Optimize mode — exercises the rewrite path end-to-end.
+  optimize-backend:
+    name: optimize · good-skill (backend LLM)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        id: run
+        with:
+          mode: optimize
+          path: tests/fixtures/good-skill
+          comment: true
+      - name: Assert optimized_content present
+        env:
+          RESULTS_FILE: ${{ steps.run.outputs.results-file }}
+        run: |
+          orig=$(jq -r '.[0].optimize.original_score // "null"' "$RESULTS_FILE")
+          opt=$(jq -r '.[0].optimize.optimized_score // "null"' "$RESULTS_FILE")
+          content_len=$(jq -r '.[0].optimize.optimized_content | length' "$RESULTS_FILE")
+          err=$(jq -r '.[0].error // "null"' "$RESULTS_FILE")
+          echo "original_score=$orig optimized_score=$opt content_length=$content_len"
+          if [ "$orig" = "null" ] || [ "$opt" = "null" ] || [ "$content_len" -lt 100 ]; then
+            echo "::error::optimize output missing or truncated"
+            echo "Error field: $err"
+            exit 1
+          fi
 
   # BYOK mode — exercises sklab CLI. Runs only when ANTHROPIC_API_KEY is set.
   judge-byok:
