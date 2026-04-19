@@ -46,7 +46,7 @@ printf '%s\n' "$COMMENT_MARKER"
 printf '## Skill-Lab Review\n\n'
 
 # ---------- Summary table ----------
-if [ "$MODE" = "review" ]; then
+if [ "$MODE" = "check" ]; then
   printf '| Skill | Static | Security | Status |\n'
   printf '|-------|--------|----------|--------|\n'
 else
@@ -70,7 +70,7 @@ jq -c '.[]' "$RESULTS_FILE" | while read -r skill; do
   fi
 
   printf '| `%s` | %s | ' "$path" "$(badge "$static_score" "static")"
-  if [ "$MODE" != "review" ]; then
+  if [ "$MODE" != "check" ]; then
     judge_score="$(jq -r '.judge.judge_score // "null"' <<< "$skill")"
     if [ "$judge_score" = "null" ] || [ -z "$judge_score" ]; then
       printf -- '— | '
@@ -101,7 +101,7 @@ jq -c '.[]' "$RESULTS_FILE" | while read -r skill; do
   total="$(jq -r '.static.total // 0' <<< "$skill")"
 
   summary_line="$(printf 'Static: %.1f/100' "$static_score")"
-  if [ "$MODE" != "review" ]; then
+  if [ "$MODE" != "check" ]; then
     judge_score="$(jq -r '.judge.judge_score // "null"' <<< "$skill")"
     if [ "$judge_score" != "null" ] && [ -n "$judge_score" ]; then
       verdict="$(verdict_label "$judge_score")"
@@ -130,7 +130,7 @@ jq -c '.[]' "$RESULTS_FILE" | while read -r skill; do
   fi
 
   # --- Judge ---
-  if [ "$MODE" != "review" ]; then
+  if [ "$MODE" != "check" ]; then
     judge_score="$(jq -r '.judge.judge_score // "null"' <<< "$skill")"
     if [ "$judge_score" != "null" ] && [ -n "$judge_score" ]; then
       act="$(jq -r '.judge.activation_score // 0' <<< "$skill")"

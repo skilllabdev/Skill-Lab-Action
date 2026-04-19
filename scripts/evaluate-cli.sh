@@ -145,7 +145,7 @@ while IFS= read -r file_path; do
   fi
 
   # ---- judge ----
-  if [ -z "$error_msg" ] && [ "$MODE" != "review" ]; then
+  if [ -z "$error_msg" ] && [ "$MODE" != "check" ]; then
     if judge_out=$(run_sklab judge "$skill_dir" --model "$MODEL"); then
       judge=$(extract_judge <<< "$judge_out")
       t=$(jq -r '.usage.tokens // 0' <<< "$judge"); total_tokens=$((total_tokens + t))

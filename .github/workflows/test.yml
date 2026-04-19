@@ -11,31 +11,31 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Review mode — static + security. No LLM, no API key.
-  review-good:
-    name: review · good-skill (expect pass)
+  # Check mode — static + security. No LLM, no API key.
+  check-good:
+    name: check · good-skill (expect pass)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./
         id: run
         with:
-          mode: review
+          mode: check
           path: tests/fixtures/good-skill
           comment: false
       - run: |
           echo "any-failed=${{ steps.run.outputs.any-failed }}"
           echo "skills-count=${{ steps.run.outputs.skills-count }}"
 
-  review-bad:
-    name: review · bad-skill (informational, low score expected)
+  check-bad:
+    name: check · bad-skill (informational, low score expected)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./
         id: run
         with:
-          mode: review
+          mode: check
           path: tests/fixtures/bad-skill
           comment: false
           fail-threshold: "0"   # informational; don't fail the job
@@ -43,8 +43,8 @@ jobs:
           echo "any-failed=${{ steps.run.outputs.any-failed }}"
 
   # Security gate must trip on the malicious fixture.
-  review-malicious:
-    name: review · malicious-skill (expect BLOCK)
+  check-malicious:
+    name: check · malicious-skill (expect BLOCK)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
         id: run
         continue-on-error: true
         with:
-          mode: review
+          mode: check
           path: tests/fixtures/malicious-skill
           comment: false
           security-gate: "true"

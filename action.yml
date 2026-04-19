@@ -7,9 +7,9 @@ branding:
 
 inputs:
   mode:
-    description: "review | judge | optimize | apply"
+    description: "check | judge | optimize | apply"
     required: false
-    default: "review"
+    default: "check"
   fail-threshold:
     description: "Minimum static score to pass (0-100). 0 = informational only."
     required: false
@@ -85,7 +85,7 @@ runs:
         COMMENT_MARKER: "<!-- sklab-action -->"
       run: ${{ github.action_path }}/scripts/apply-optimize.sh
 
-    # ---------- review | judge | optimize: detect → evaluate → comment ----------
+    # ---------- check | judge | optimize: detect → evaluate → comment ----------
     - name: Detect changed SKILL.md files
       id: detect
       if: inputs.mode != 'apply'

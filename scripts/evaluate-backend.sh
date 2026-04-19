@@ -154,7 +154,7 @@ while IFS= read -r file_path; do
   fi
 
   # ---- judge (if mode requires LLM) ----
-  if [ -z "$error_msg" ] && [ "$MODE" != "review" ]; then
+  if [ -z "$error_msg" ] && [ "$MODE" != "check" ]; then
     if judge_resp=$(call_api POST "$BASE_URL/v1/repos/$OWNER/$REPO/judge?$qs" '{}'); then
       judge=$(extract_judge <<< "$judge_resp")
     else

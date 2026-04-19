@@ -14,7 +14,7 @@ the GitHub front door to it.
 - **Escape hatch for privacy.** Supply an `api-key` and the action switches to
   BYOK mode: it installs the OSS [`skill-lab`](https://pypi.org/project/skill-lab/)
   CLI on the runner and uses your key / model of choice.
-- **Three modes.** `review` (static + security), `judge` (adds LLM rubric),
+- **Three modes.** `check` (static + security), `judge` (adds LLM rubric),
   `optimize` (adds a rewrite proposal).
 - **Slash-command optimize flow.** `/optimize` triggers a rewrite; reviewers
   can tweak the proposed content inside the PR comment; `/apply-optimize`
@@ -48,7 +48,7 @@ and you'll get an evaluation comment.
 
 | Mode | What runs | LLM? | Trigger pattern |
 |------|-----------|------|-----------------|
-| `review`   | static checks + security scan | no | `pull_request` on `**/SKILL.md` |
+| `check`    | static checks + security scan | no | `pull_request` on `**/SKILL.md` |
 | `judge`    | static + security + 8-criterion LLM rubric | yes | `pull_request` on `**/SKILL.md` |
 | `optimize` | judge + LLM rewrite proposal | yes | `/optimize` comment |
 | `apply`    | writes optimized content from last comment, commits, pushes | no | `/apply-optimize` comment |
@@ -57,7 +57,7 @@ and you'll get an evaluation comment.
 
 | Name | Default | Description |
 |------|---------|-------------|
-| `mode` | `review` | `review`, `judge`, `optimize`, or `apply`. |
+| `mode` | `check` | `check`, `judge`, `optimize`, or `apply`. Mirrors the `sklab` CLI subcommand names. |
 | `fail-threshold` | `0` | Minimum static quality score (0–100) to pass. `0` = informational only. |
 | `security-gate` | `true` | Fail the check when the security scan returns `BLOCK`. |
 | `judge-threshold` | `0` | Minimum judge score (0–100) to pass. `0` = informational only. |
@@ -99,27 +99,27 @@ and you'll get an evaluation comment.
 ]
 ```
 
-Fields that weren't computed for the mode (e.g. `judge` in `review` mode) are `{}`.
+Fields that weren't computed for the mode (e.g. `judge` in `check` mode) are `{}`.
 
 ## Example workflows
 
-### 1. Review on every PR
+### 1. Check on every PR
 
 ```yaml
-name: Skill Review
+name: Skill Check
 on:
   pull_request:
     paths: ['**/SKILL.md']
 permissions:
   pull-requests: write
 jobs:
-  review:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: skilllabdev/skill-lab-action@v1
         with:
-          mode: review
+          mode: check
           fail-threshold: 75
           security-gate: true
 ```
@@ -229,7 +229,7 @@ lands it on the branch.
 ```yaml
       - uses: skilllabdev/skill-lab-action@v1
         with:
-          mode: review
+          mode: check
           comment: false
           fail-threshold: 70
 ```
@@ -270,7 +270,7 @@ or invoke the action against a branch in your own repo:
 ```yaml
 - uses: skilllabdev/skill-lab-action@main   # or any branch / SHA
   with:
-    mode: review
+    mode: check
     path: tests/fixtures/good-skill
 ```
 
