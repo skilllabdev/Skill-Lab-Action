@@ -88,6 +88,7 @@ Note: `mode: check` is **not** `sklab check` — the CLI's `check` subcommand ru
 | Name | Type | Description |
 |------|------|-------------|
 | `results` | JSON string | Array of per-skill results (see schema below). `optimize.optimized_content` is stripped to fit GitHub's step-output size limit — use `results-file` for the full payload. |
+| `results-file` | path | Path on the runner to the full, untrimmed results JSON (under `$RUNNER_TEMP`). Valid for the duration of the job. |
 | `any-failed` | `'true'`/`'false'` | Any skill failed any gate. |
 | `skills-count` | integer | Number of skills processed. |
 | `total-cost` | string | `"free (backend tier)"` or `"~$0.0043 (1200 tokens)"` for BYOK. |

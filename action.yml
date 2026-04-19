@@ -57,8 +57,11 @@ inputs:
 
 outputs:
   results:
-    description: "JSON array of per-skill results"
+    description: "JSON array of per-skill results (optimize.optimized_content stripped to fit step-output size limit — read results-file for the full payload)"
     value: ${{ steps.evaluate.outputs.results }}
+  results-file:
+    description: "Path on the runner to the full, untrimmed results JSON (under $RUNNER_TEMP). Survives the duration of the job."
+    value: ${{ steps.evaluate.outputs.results-file }}
   any-failed:
     description: "'true' if any gate failed"
     value: ${{ steps.evaluate.outputs.any-failed }}

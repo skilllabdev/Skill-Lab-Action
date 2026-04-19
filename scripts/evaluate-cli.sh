@@ -150,8 +150,8 @@ while IFS= read -r file_path; do
     security=$(extract_security <<< "$eval_out")
     if [ "$MODE" != "check" ]; then
       judge=$(extract_judge <<< "$eval_out")
-      t=$(jq -r '.usage.tokens // 0' <<< "$judge"); total_tokens=$((total_tokens + t))
-      c=$(jq -r '.usage.cost // 0'   <<< "$judge"); total_cost=$(awk -v a="$total_cost" -v b="$c" 'BEGIN{print a+b}')
+      t=$(jq -r '.usage | (.tokens // ((.input_tokens // 0) + (.output_tokens // 0)))' <<< "$judge"); total_tokens=$((total_tokens + t))
+      c=$(jq -r '.usage.cost // 0' <<< "$judge"); total_cost=$(awk -v a="$total_cost" -v b="$c" 'BEGIN{print a+b}')
     fi
   else
     error_msg="sklab evaluate failed: $(printf '%s' "$eval_out" | head -c 2000)"
@@ -160,8 +160,8 @@ while IFS= read -r file_path; do
   if [ -z "$error_msg" ] && [ "$MODE" = "optimize" ]; then
     if opt_out=$(run_sklab optimize --format json --model "$MODEL" "$skill_dir"); then
       optimize=$(extract_optimize <<< "$opt_out")
-      t=$(jq -r '.usage.tokens // 0' <<< "$optimize"); total_tokens=$((total_tokens + t))
-      c=$(jq -r '.usage.cost // 0'   <<< "$optimize"); total_cost=$(awk -v a="$total_cost" -v b="$c" 'BEGIN{print a+b}')
+      t=$(jq -r '.usage | (.tokens // ((.input_tokens // 0) + (.output_tokens // 0)))' <<< "$optimize"); total_tokens=$((total_tokens + t))
+      c=$(jq -r '.usage.cost // 0' <<< "$optimize"); total_cost=$(awk -v a="$total_cost" -v b="$c" 'BEGIN{print a+b}')
     else
       error_msg="sklab optimize failed: $(printf '%s' "$opt_out" | head -c 2000)"
     fi

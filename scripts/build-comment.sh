@@ -9,8 +9,13 @@ set -euo pipefail
 COMMENT_MARKER="${COMMENT_MARKER:-<!-- sklab-action -->}"
 
 SOURCE="$(jq -r '.[0].source // "backend"' "$RESULTS_FILE")"
-TOTAL_COST="$(jq -r '[.[].judge.usage.cost // 0, .[].optimize.usage.cost // 0] | add // 0' "$RESULTS_FILE")"
-TOTAL_TOKENS="$(jq -r '[.[].judge.usage.tokens // 0, .[].optimize.usage.tokens // 0] | add // 0' "$RESULTS_FILE")"
+TOTAL_COST="$(jq -r '
+  [.[] | (.judge.usage.cost // 0), (.optimize.usage.cost // 0)]
+  | add // 0' "$RESULTS_FILE")"
+TOTAL_TOKENS="$(jq -r '
+  def t: (.tokens // ((.input_tokens // 0) + (.output_tokens // 0)));
+  [.[] | (.judge.usage | t), (.optimize.usage | t)]
+  | add // 0' "$RESULTS_FILE")"
 
 badge_color() {
   awk -v s="$1" 'BEGIN {
