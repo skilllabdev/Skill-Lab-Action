@@ -1,5 +1,5 @@
 ---
-name: csv-reconciliation
+name: good-skill
 description: Reconcile two CSV files by a shared key column, emitting adds/removes/changes as three separate CSVs. Use when the user asks to diff, compare, or reconcile tabular data where rows are identified by a stable key.
 ---
 

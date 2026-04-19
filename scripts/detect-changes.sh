@@ -70,20 +70,20 @@ case "$GITHUB_EVENT_NAME" in
     after="$(jq -r '.after // empty' "$GITHUB_EVENT_PATH")"
     if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
       # First push / new branch: scan the whole tree.
-      raw=$(git ls-files '**/SKILL.md' | jq -R . | jq -cs .)
+      raw=$(git ls-files 'SKILL.md' '**/SKILL.md' | jq -R . | jq -cs .)
     else
-      raw=$(git diff --name-only --diff-filter=d "$before" "$after" -- '**/SKILL.md' | jq -R . | jq -cs .)
+      raw=$(git diff --name-only --diff-filter=d "$before" "$after" -- 'SKILL.md' '**/SKILL.md' | jq -R . | jq -cs .)
     fi
     ;;
 
   workflow_dispatch|schedule)
     # No diff context; scan all SKILL.md files in the repo.
-    raw=$(git ls-files '**/SKILL.md' | jq -R . | jq -cs .)
+    raw=$(git ls-files 'SKILL.md' '**/SKILL.md' | jq -R . | jq -cs .)
     ;;
 
   *)
     echo "::notice::Event '$GITHUB_EVENT_NAME' not supported; scanning repository"
-    raw=$(git ls-files '**/SKILL.md' | jq -R . | jq -cs .)
+    raw=$(git ls-files 'SKILL.md' '**/SKILL.md' | jq -R . | jq -cs .)
     ;;
 esac
 

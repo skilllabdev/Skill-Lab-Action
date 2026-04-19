@@ -80,7 +80,9 @@ extract_security() {
 }
 
 extract_judge() {
-  jq -c '{
+  # Accept either an unwrapped /judge response or a wrapper object with
+  # .judge_review / .judge (some sklab outputs nest the rubric this way).
+  jq -c '(.judge_review // .judge // .) | {
     judge_score: (.judge_score // 0),
     activation_score: (.activation_score // 0),
     instruction_score: (.instruction_score // 0),
@@ -104,13 +106,14 @@ extract_optimize() {
 
 call_api() {
   local method="$1" url="$2" body="${3:-}"
+  [ -z "$body" ] && body='{}'
   local out http_code
   out=$(mktemp)
   if [ "$method" = "GET" ]; then
     http_code=$(curl -sS -o "$out" -w '%{http_code}' "$url" || echo "000")
   else
     http_code=$(curl -sS -o "$out" -w '%{http_code}' -X "$method" \
-      -H 'content-type: application/json' -d "${body:-{}}" "$url" || echo "000")
+      -H 'content-type: application/json' -d "$body" "$url" || echo "000")
   fi
   if [ "$http_code" = "429" ]; then
     echo "::error::api.skill-lab.dev rate-limited this request (HTTP 429). Consider adding 'api-key' for BYOK mode."

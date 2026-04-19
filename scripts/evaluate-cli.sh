@@ -90,7 +90,9 @@ extract_security() {
 }
 
 extract_judge() {
-  jq -c '{
+  # sklab embeds the rubric in .judge_review on the evaluate response.
+  # Backend /judge returns it unwrapped. Handle both shapes.
+  jq -c '(.judge_review // .judge // .) | {
     judge_score: (.judge_score // 0),
     activation_score: (.activation_score // 0),
     instruction_score: (.instruction_score // 0),
@@ -113,10 +115,8 @@ extract_optimize() {
 }
 
 run_sklab() {
-  # sklab <subcmd> --format json [flags] <path> -> stdout JSON, or non-zero + stderr on error.
-  local subcmd="$1" skill_dir="$2"
-  shift 2
-  sklab "$subcmd" --format json "$@" "$skill_dir" 2>&1
+  # Invoke sklab, capture stdout (JSON on success). Stderr goes to the runner log.
+  sklab "$@" 2>&1
 }
 
 results='[]'
@@ -133,36 +133,37 @@ while IFS= read -r file_path; do
   error_msg=""
   static='{}' ; security='{}' ; judge='{}' ; optimize='{}'
 
-  eval_flags=()
-  [ "$SPEC_ONLY" = "true" ] && eval_flags+=(--spec-only)
+  # sklab's judge rubric lives inside `sklab evaluate` (controlled by --skip-review).
+  # check mode:    evaluate --skip-review   — static + security only, no LLM
+  # judge mode:    evaluate --model M       — static + security + judge in one call
+  # optimize mode: evaluate --model M, then optimize --model M (two calls)
+  eval_args=(evaluate --format json)
+  [ "$SPEC_ONLY" = "true" ] && eval_args+=(--spec-only)
+  if [ "$MODE" = "check" ]; then
+    eval_args+=(--skip-review)
+  else
+    eval_args+=(--model "$MODEL")
+  fi
 
-  # ---- evaluate (static + security) ----
-  if eval_out=$(run_sklab evaluate "$skill_dir" "${eval_flags[@]}"); then
+  if eval_out=$(run_sklab "${eval_args[@]}" "$skill_dir"); then
     static=$(extract_static <<< "$eval_out")
     security=$(extract_security <<< "$eval_out")
-  else
-    error_msg="sklab evaluate failed: $(echo "$eval_out" | head -c 500)"
-  fi
-
-  # ---- judge ----
-  if [ -z "$error_msg" ] && [ "$MODE" != "check" ]; then
-    if judge_out=$(run_sklab judge "$skill_dir" --model "$MODEL"); then
-      judge=$(extract_judge <<< "$judge_out")
+    if [ "$MODE" != "check" ]; then
+      judge=$(extract_judge <<< "$eval_out")
       t=$(jq -r '.usage.tokens // 0' <<< "$judge"); total_tokens=$((total_tokens + t))
       c=$(jq -r '.usage.cost // 0'   <<< "$judge"); total_cost=$(awk -v a="$total_cost" -v b="$c" 'BEGIN{print a+b}')
-    else
-      error_msg="sklab judge failed: $(echo "$judge_out" | head -c 500)"
     fi
+  else
+    error_msg="sklab evaluate failed: $(printf '%s' "$eval_out" | head -c 2000)"
   fi
 
-  # ---- optimize ----
   if [ -z "$error_msg" ] && [ "$MODE" = "optimize" ]; then
-    if opt_out=$(run_sklab optimize "$skill_dir" --model "$MODEL"); then
+    if opt_out=$(run_sklab optimize --format json --model "$MODEL" "$skill_dir"); then
       optimize=$(extract_optimize <<< "$opt_out")
       t=$(jq -r '.usage.tokens // 0' <<< "$optimize"); total_tokens=$((total_tokens + t))
       c=$(jq -r '.usage.cost // 0'   <<< "$optimize"); total_cost=$(awk -v a="$total_cost" -v b="$c" 'BEGIN{print a+b}')
     else
-      error_msg="sklab optimize failed: $(echo "$opt_out" | head -c 500)"
+      error_msg="sklab optimize failed: $(printf '%s' "$opt_out" | head -c 2000)"
     fi
   fi
 

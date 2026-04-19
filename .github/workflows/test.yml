@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
 
-  # Judge mode hits the backend. Skipped if backend is unreachable at test time.
+  # Judge mode hits the backend. Asserts the LLM rubric actually ran.
   judge-backend:
     name: judge · good-skill (backend LLM)
     runs-on: ubuntu-latest
@@ -72,11 +72,62 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./
         id: run
-        continue-on-error: true
         with:
           mode: judge
           path: tests/fixtures/good-skill
           comment: false
-      - run: |
-          echo "any-failed=${{ steps.run.outputs.any-failed }}"
+      - name: Assert judge_score present
+        env:
+          RESULTS: ${{ steps.run.outputs.results }}
+        run: |
+          score=$(printf '%s' "$RESULTS" | jq -r '.[0].judge.judge_score // "null"')
+          err=$(printf '%s' "$RESULTS" | jq -r '.[0].error // "null"')
+          if [ "$score" = "null" ] || [ -z "$score" ] || [ "$score" = "0" ]; then
+            echo "::error::judge_score missing or zero — judge call likely failed"
+            echo "Error field: $err"
+            echo "Full results: $RESULTS"
+            exit 1
+          fi
+          echo "judge_score=$score"
           echo "total-cost=${{ steps.run.outputs.total-cost }}"
+
+  # BYOK mode — exercises sklab CLI. Runs only when ANTHROPIC_API_KEY is set.
+  judge-byok:
+    name: judge · good-skill (BYOK)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect BYOK key
+        id: detect
+        env:
+          KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY secret not set — BYOK job is a no-op"
+          fi
+      - uses: ./
+        if: steps.detect.outputs.have == 'true'
+        id: run
+        with:
+          mode: judge
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          path: tests/fixtures/good-skill
+          comment: false
+      - name: Assert judge_score present (BYOK)
+        if: steps.detect.outputs.have == 'true'
+        env:
+          RESULTS: ${{ steps.run.outputs.results }}
+        run: |
+          score=$(printf '%s' "$RESULTS" | jq -r '.[0].judge.judge_score // "null"')
+          err=$(printf '%s' "$RESULTS" | jq -r '.[0].error // "null"')
+          if [ "$score" = "null" ] || [ -z "$score" ] || [ "$score" = "0" ]; then
+            echo "::error::BYOK judge_score missing or zero"
+            echo "Error field: $err"
+            echo "Full results: $RESULTS"
+            exit 1
+          fi
+          echo "judge_score=$score (BYOK)"
