@@ -53,11 +53,24 @@ and you'll get an evaluation comment.
 | `optimize` | judge + LLM rewrite proposal | yes | `/optimize` comment |
 | `apply`    | writes optimized content from last comment, commits, pushes | no | `/apply-optimize` comment |
 
+### Mode → CLI mapping
+
+In BYOK mode the action shells out to the `sklab` CLI. The mapping is:
+
+| Action `mode` | Equivalent BYOK command | Backend endpoint |
+|---------------|-------------------------|------------------|
+| `check`       | `sklab evaluate --skip-review` (full 37-check static + security, no LLM) | `GET /v1/repos/:o/:r/evaluate` |
+| `judge`       | `sklab evaluate --model <model>` (static + security + LLM rubric in one call) | `GET /evaluate` + `POST /judge` |
+| `optimize`    | `sklab evaluate --model <model>` + `sklab optimize --model <model>` | `GET /evaluate` + `POST /judge` + `POST /optimize` |
+| `apply`       | no CLI equivalent — parses the last sklab-action comment and commits | no backend call |
+
+Note: `mode: check` is **not** `sklab check` — the CLI's `check` subcommand runs only HIGH-severity checks as a fast pre-flight. The action's `check` mode runs the full static + security pipeline, matching `sklab evaluate --skip-review`.
+
 ## Inputs
 
 | Name | Default | Description |
 |------|---------|-------------|
-| `mode` | `check` | `check`, `judge`, `optimize`, or `apply`. Mirrors the `sklab` CLI subcommand names. |
+| `mode` | `check` | `check`, `judge`, `optimize`, or `apply`. See [mode → CLI mapping](#mode--cli-mapping) below. |
 | `fail-threshold` | `0` | Minimum static quality score (0–100) to pass. `0` = informational only. |
 | `security-gate` | `true` | Fail the check when the security scan returns `BLOCK`. |
 | `judge-threshold` | `0` | Minimum judge score (0–100) to pass. `0` = informational only. |
